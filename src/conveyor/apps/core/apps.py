@@ -8,4 +8,4 @@ class CoreConfig(AppConfig):
     label = "core"
 
     def ready(self) -> None:
-        from conveyor.apps.core import checks  # noqa: F401  (registers deploy checks)
+        from conveyor.apps.core import checks  # noqa: F401  (registers system checks)

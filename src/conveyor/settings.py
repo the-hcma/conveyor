@@ -30,7 +30,8 @@ DEBUG = _bool("CONVEYOR_DEBUG")
 
 # A real key must be injected in every non-DEBUG deploy. The insecure fallback
 # carries Django's "django-insecure-" marker so `conveyor.apps.core.checks`
-# (and `manage.py check --deploy`) fail when it leaks into production.
+# (conveyor.E001, a normal system check run by every `manage.py` command) fails
+# when a non-DEBUG process boots on it.
 SECRET_KEY = os.environ.get("CONVEYOR_SECRET_KEY") or "django-insecure-local-dev-only"
 
 ALLOWED_HOSTS = _csv("CONVEYOR_ALLOWED_HOSTS", "localhost,127.0.0.1" if DEBUG else "")
@@ -81,6 +82,10 @@ DATABASES = {
     "default": dj_database_url.parse(
         os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
         conn_max_age=600,
+        # Re-validate a pooled connection at the start of each request and
+        # reconnect if it died (e.g. Postgres restart) instead of serving errors
+        # from a dead connection until CONN_MAX_AGE elapses.
+        conn_health_checks=True,
     ),
 }
 

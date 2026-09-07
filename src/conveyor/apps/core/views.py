@@ -11,5 +11,8 @@ def healthz(request: HttpRequest) -> JsonResponse:
             cursor.execute("SELECT 1")
             cursor.fetchone()
     except Exception:  # report unhealthy, never raise from the probe
+        # Drop the (likely dead) pooled connection so the next probe reconnects
+        # immediately instead of reusing it for up to CONN_MAX_AGE seconds.
+        connection.close()
         return JsonResponse({"status": "unhealthy", "database": "unreachable"}, status=503)
     return JsonResponse({"status": "ok"})
