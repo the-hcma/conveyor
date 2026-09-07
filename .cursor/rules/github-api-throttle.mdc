@@ -1,0 +1,25 @@
+---
+description: Run agent `gh` calls through repository-helpers/scripts/gh-api
+alwaysApply: true
+---
+
+# GitHub API rate-limit throttle
+
+Any agent flow that shells out to `gh` — PR / issue triage, review replies,
+CI polling, `gh api`, and `gh pr` / `gh issue` reads and writes — must run it as:
+
+```
+"${REPOSITORY_HELPERS_DIR:-$HOME/work/ai/repository-helpers}/scripts/gh-api" <gh args…>
+```
+
+so GitHub **primary and secondary** rate-limit backoff is automatic — the same
+`github_api_exec_with_rate_limit_retry` logic `wait-for-agent-review` and
+`github-repo-lint` already use internally. A direct `gh` call 403s hard for the
+better part of an hour once GitHub's *secondary* limiter trips.
+
+Args, stdin, stdout, and the exit code (including `125` for quota-intact
+fail-fast) pass straight through. Interactive `gh` (`auth`, prompts, `--web`) is
+exempt; `scripts/gh-api -- <args>` opts in a subcommand the wrapper rejects.
+
+<!-- github-api-throttle-canonical: https://github.com/the-hcma/repository-helpers/blob/main/.cursor/rules/github-api-throttle.mdc -->
+Canonical rule + `scripts/gh-api --help` (the SSOT): https://github.com/the-hcma/repository-helpers/blob/main/.cursor/rules/github-api-throttle.mdc
