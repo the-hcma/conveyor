@@ -36,3 +36,25 @@ class TestSecretKeyCheck:
     @override_settings(DEBUG=False, SECRET_KEY="a-real-injected-secret-key")
     def test_silent_with_a_real_key(self) -> None:
         assert self._run() == []
+
+
+class TestWebhookSecretCheck:
+    """conveyor.E002 — a non-DEBUG process with no webhook secret must fail."""
+
+    @staticmethod
+    def _run() -> list[str]:
+        from conveyor.apps.core.checks import conveyor_webhook_secret_check
+
+        return [str(e.id) for e in conveyor_webhook_secret_check(None)]
+
+    @override_settings(DEBUG=False, CONVEYOR_WEBHOOK_SECRET="")
+    def test_fires_when_debug_off_and_secret_unset(self) -> None:
+        assert self._run() == ["conveyor.E002"]
+
+    @override_settings(DEBUG=True, CONVEYOR_WEBHOOK_SECRET="")
+    def test_silent_when_debug_on(self) -> None:
+        assert self._run() == []
+
+    @override_settings(DEBUG=False, CONVEYOR_WEBHOOK_SECRET="a-real-webhook-secret")
+    def test_silent_with_a_secret(self) -> None:
+        assert self._run() == []

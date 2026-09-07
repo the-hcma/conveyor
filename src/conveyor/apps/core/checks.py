@@ -24,3 +24,17 @@ def conveyor_secret_key_check(app_configs: Any, **kwargs: Any) -> Sequence[Error
             )
         ]
     return []
+
+
+@register
+def conveyor_webhook_secret_check(app_configs: Any, **kwargs: Any) -> Sequence[Error]:
+    """Fail a non-DEBUG process with no webhook secret — ingestion cannot verify."""
+    if not settings.DEBUG and not settings.CONVEYOR_WEBHOOK_SECRET:
+        return [
+            Error(
+                "CONVEYOR_WEBHOOK_SECRET is unset with DEBUG off — POST /webhooks/github "
+                "will reject every delivery (503).",
+                id="conveyor.E002",
+            )
+        ]
+    return []

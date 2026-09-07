@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "conveyor.apps.core",
+    "conveyor.apps.webhooks",
 ]
 
 MIDDLEWARE = [
@@ -114,14 +115,15 @@ REST_FRAMEWORK = {
     "UNAUTHENTICATED_USER": None,
 }
 
-# --- Conveyor-specific (consumed in later milestones) -------------------------
+# --- Conveyor-specific -------------------------------------------------------
 
 # GitHub App webhook shared secret; ingestion rejects any request that fails the
-# X-Hub-Signature-256 check against this value (M2).
+# X-Hub-Signature-256 check against this value. conveyor.E002 fails a non-DEBUG
+# process when it is unset.
 CONVEYOR_WEBHOOK_SECRET = os.environ.get("CONVEYOR_WEBHOOK_SECRET", "")
 
-# How long a delivery stays in the Postgres hot tier before it is pruned (it
-# lives on in Redpanda). ISO-8601-ish "<n>d" / "<n>h"; parsed in M2.
+# How long a delivery stays in the Postgres hot tier before `prune_webhooks`
+# deletes it (from M3 it also lives on in Redpanda). "<n><unit>", unit s/m/h/d/w.
 CONVEYOR_HOT_WINDOW = os.environ.get("CONVEYOR_HOT_WINDOW", "14d")
 
 # Redpanda / Kafka bootstrap servers (M3).
