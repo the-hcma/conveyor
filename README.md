@@ -39,6 +39,22 @@ GitHub (Conveyor App webhook)
 
 ## Development
 
+Django + `uv`. Python is pinned in `.python-version`.
+
+```bash
+uv sync --group dev                       # venv + deps
+cp .env.example .env                      # local config (never commit .env)
+CONVEYOR_DEBUG=1 uv run python manage.py migrate
+CONVEYOR_DEBUG=1 uv run python manage.py runserver
+uv run pytest -m 'not live' -q            # hermetic tests
+```
+
+Local CI gate (from a repository-helpers clone):
+
+```bash
+"${REPOSITORY_HELPERS_DIR:-$HOME/work/ai/repository-helpers}/scripts/dev/pre-pr-checks"
+```
+
 Ground rules for contributors (human or agent) live in
 **[AGENTS.md](./AGENTS.md)** and **[.cursor/rules/](./.cursor/rules/)** — read both
 at the start of every session.

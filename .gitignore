@@ -22,6 +22,8 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
+.uvcache/
+audit.json
 
 # Editors
 .idea/

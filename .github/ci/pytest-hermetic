@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# .github/ci/ gate — the-hcma/repository-helpers convention; run by pre-pr-checks
+# and ci.yml. Offline test subset only (no Redpanda, no Postgres, no GitHub).
+set -euo pipefail
+
+bash .github/ci/setup-python
+
+uv run pytest -m 'not live' -q

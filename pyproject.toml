@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "conveyor"
+version = "0.0.0"
+description = "Org GitHub App + webhook store, subscription registry, and action engine"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+authors = [
+    { name = "Henrique Andrade", email = "thehcma@users.noreply.github.com" },
+]
+
+dependencies = [
+    "django>=5.2.7",
+    "djangorestframework>=3.16.1",
+    "dj-database-url>=3.0.1",
+    "gunicorn>=23.0.0",
+    "python-dotenv>=1.1.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/the-hcma/conveyor"
+Issues = "https://github.com/the-hcma/conveyor/issues"
+Repository = "https://github.com/the-hcma/conveyor"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/conveyor"]
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "django-stubs>=5.2.7",
+    "djangorestframework-stubs>=3.16.4",
+    "pyright>=1.1.406",
+    "pytest>=8.4.2",
+    "pytest-django>=4.11.1",
+    "ruff>=0.14.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "conveyor.settings"
+testpaths = ["tests"]
+markers = [
+    "live: tests that need real external services (never run in CI)",
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
