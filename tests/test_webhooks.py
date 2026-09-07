@@ -112,6 +112,24 @@ class TestIngestion:
     def test_get_is_not_allowed(self) -> None:
         assert Client().get(reverse("github-webhook")).status_code == 405
 
+    def test_overlong_payload_metadata_is_truncated(self) -> None:
+        payload = {
+            "repository": {"full_name": "x" * 500},
+            "sender": {"login": "y" * 500},
+            "action": "z" * 200,
+        }
+        resp = _post(payload, delivery="clip-1")
+        assert resp.status_code == 202
+        row = WebhookDelivery.objects.get(delivery_id="clip-1")
+        assert len(row.repo_full_name) == 255
+        assert len(row.sender) == 255
+        assert len(row.action) == 64
+
+    def test_overlong_event_header_is_rejected(self) -> None:
+        resp = _post({"a": 1}, event="e" * 100, delivery="clip-2")
+        assert resp.status_code == 400
+        assert not WebhookDelivery.objects.filter(delivery_id="clip-2").exists()
+
     def test_secret_unset_returns_503(self, settings: Settings) -> None:
         settings.CONVEYOR_WEBHOOK_SECRET = ""
         assert _post({"a": 1}, sign=False).status_code == 503

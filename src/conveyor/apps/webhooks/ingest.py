@@ -43,13 +43,21 @@ def verify_signature(secret: str, body: bytes, signature_header: str | None) -> 
         raise WebhookError(401, "signature mismatch")
 
 
-def _payload_str(payload: dict[str, Any], *path: str) -> str:
+def _field_len(name: str) -> int:
+    return WebhookDelivery._meta.get_field(name).max_length  # type: ignore[attr-defined,return-value]
+
+
+def _payload_str(payload: dict[str, Any], field: str, *path: str) -> str:
     node: Any = payload
     for key in path:
         if not isinstance(node, dict):
             return ""
         node = node.get(key)
-    return node if isinstance(node, str) else ""
+    value = node if isinstance(node, str) else ""
+    # Postgres enforces varchar length (SQLite does not) — truncate cosmetic
+    # metadata rather than let an oversized value 500 the write and make GitHub
+    # retry the delivery forever.
+    return value[: _field_len(field)]
 
 
 def ingest(secret: str, body: bytes, headers: dict[str, str | None]) -> IngestResult:
@@ -63,6 +71,13 @@ def ingest(secret: str, body: bytes, headers: dict[str, str | None]) -> IngestRe
     event = headers.get("event")
     if not delivery_id or not event:
         raise WebhookError(400, "missing X-GitHub-Delivery or X-GitHub-Event")
+    # delivery_id and event are load-bearing — reject rather than truncate a
+    # value no real GitHub delivery produces (a truncated idempotency key could
+    # collide with a different delivery).
+    if len(delivery_id) > _field_len("delivery_id"):
+        raise WebhookError(400, "X-GitHub-Delivery exceeds the maximum length")
+    if len(event) > _field_len("event"):
+        raise WebhookError(400, "X-GitHub-Event exceeds the maximum length")
 
     try:
         payload = json.loads(body)
@@ -75,10 +90,10 @@ def ingest(secret: str, body: bytes, headers: dict[str, str | None]) -> IngestRe
         delivery_id=delivery_id,
         defaults={
             "event": event,
-            "action": _payload_str(payload, "action"),
-            "repo_full_name": _payload_str(payload, "repository", "full_name"),
-            "sender": _payload_str(payload, "sender", "login"),
-            "hook_id": headers.get("hook_id") or "",
+            "action": _payload_str(payload, "action", "action"),
+            "repo_full_name": _payload_str(payload, "repo_full_name", "repository", "full_name"),
+            "sender": _payload_str(payload, "sender", "sender", "login"),
+            "hook_id": (headers.get("hook_id") or "")[: _field_len("hook_id")],
             "payload": payload,
         },
     )
