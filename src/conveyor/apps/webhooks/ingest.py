@@ -39,7 +39,13 @@ def verify_signature(secret: str, body: bytes, signature_header: str | None) -> 
     if not signature_header or not signature_header.startswith(_SIGNATURE_PREFIX):
         raise WebhookError(401, "missing or malformed X-Hub-Signature-256")
     expected = _SIGNATURE_PREFIX + hmac.new(secret.encode(), body, sha256).hexdigest()
-    if not hmac.compare_digest(expected, signature_header):
+    # Compare as bytes: a valid signature is ASCII hex, and WSGI hands us the
+    # header Latin-1-decoded — hmac.compare_digest(str, str) raises TypeError on
+    # any non-ASCII char, which would 500 an unauthenticated endpoint. "replace"
+    # maps non-ASCII to a byte that cannot match, i.e. a clean 401.
+    if not hmac.compare_digest(
+        expected.encode("ascii"), signature_header.encode("ascii", "replace")
+    ):
         raise WebhookError(401, "signature mismatch")
 
 

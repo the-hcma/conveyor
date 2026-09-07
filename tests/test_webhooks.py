@@ -130,6 +130,27 @@ class TestIngestion:
         assert resp.status_code == 400
         assert not WebhookDelivery.objects.filter(delivery_id="clip-2").exists()
 
+    def test_non_ascii_signature_is_a_clean_401(self) -> None:
+        # A Latin-1 header byte >= 0x80 would TypeError hmac.compare_digest(str, str).
+        resp = _post({"a": 1}, signature="sha256=café")
+        assert resp.status_code == 401
+        assert not WebhookDelivery.objects.exists()
+
+    def test_non_object_json_body_is_rejected(self) -> None:
+        body = b"[1, 2, 3]"
+        resp = Client().post(
+            reverse("github-webhook"),
+            data=body,
+            content_type="application/json",
+            headers={
+                "X-GitHub-Delivery": "arr-1",
+                "X-GitHub-Event": "push",
+                "X-Hub-Signature-256": _sign(body),
+            },
+        )
+        assert resp.status_code == 400
+        assert not WebhookDelivery.objects.exists()
+
     def test_secret_unset_returns_503(self, settings: Settings) -> None:
         settings.CONVEYOR_WEBHOOK_SECRET = ""
         assert _post({"a": 1}, sign=False).status_code == 503
