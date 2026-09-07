@@ -4,8 +4,10 @@ from django.contrib import admin
 from django.urls import path
 
 from conveyor.apps.core.views import healthz
+from conveyor.apps.webhooks.views import github_webhook
 
 urlpatterns = [
     path("healthz", healthz, name="healthz"),
+    path("webhooks/github", github_webhook, name="github-webhook"),
     path("admin/", admin.site.urls),
 ]
