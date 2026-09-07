@@ -1,0 +1,150 @@
+name: CI
+
+# Job structure and the .github/ci/* gate scripts follow the-hcma/repository-helpers
+# conventions, enforced by github-repo-lint. Required checks on `main`: Scaffold
+# checks, Shellcheck. Guard and Secret Scan run on every PR but are advisory
+# (not required).
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+    branches-ignore:
+      - '**/graphite-base/**'
+  push:
+    branches-ignore:
+      - 'gh-readonly-queue/**'
+      - main
+      - '**/graphite-base/**'
+  workflow_dispatch:
+  merge_group:
+
+# push and pull_request must not share a concurrency group: cancel-in-progress
+# would leave CANCELLED required checks on the PR commit and block merge.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.event.action || github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Guard
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.set-skip.outputs.skip }}
+    steps:
+      - id: pr-state
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        with:
+          timeout_seconds: 15
+          max_attempts: 3
+          retry_wait_seconds: 5
+          command: |
+            if [[ -z "$PR_NUMBER" ]]; then exit 0; fi
+            state=$(gh pr view "$PR_NUMBER" --repo "$REPOSITORY" --json state -q .state)
+            echo "state=$state" >> "$GITHUB_OUTPUT"
+      - id: set-skip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          PR_STATE: ${{ steps.pr-state.outputs.state }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          # Skip Graphite MQ staging branches and already-merged PR restacks.
+          # GitHub's native merge queue uses merge_group events — those MUST run.
+          if [[ "$HEAD_REF" == gtmq_merge_* ]] || [[ "$PR_STATE" == "MERGED" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # CodeRabbit description edits carry no code change.
+          if [[ "$EVENT_NAME" == "pull_request" ]] \
+              && [[ "$EVENT_ACTION" == "edited" ]] \
+              && [[ "$SENDER_LOGIN" == "coderabbitai[bot]" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Pull request CI skipped: CodeRabbit description edit"
+            exit 0
+          fi
+          # Skip push CI when an open PR already covers this branch.
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            branch="${GITHUB_REF#refs/heads/}"
+            count=0
+            if c="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --state open --json number --jq 'length' 2>/dev/null)"; then
+              count="$c"
+            fi
+            if [[ "$count" -gt 0 ]]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Push CI skipped: open PR exists"
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+  scaffold:
+    name: Scaffold checks
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+      - name: Verify scaffold files
+        run: |
+          test -f README.md
+          test -f AGENTS.md
+          test -f CLAUDE.md
+          test -f LICENSE
+          test -f .github/CODEOWNERS
+          test -f .github/copilot-instructions.md
+          test -f .github/stacking-tool
+          test -x .github/ci/secret-scan
+          test -x .github/ci/shellcheck
+          for r in git-commit-identity no-secret-exposure pr-ship-and-review \
+                   pre-pr-checks read-agents-and-rules remote-timeouts-retries \
+                   repo-practices-after-config-change stacking-tool; do
+            test -f ".cursor/rules/$r.mdc"
+          done
+
+  shellcheck:
+    name: Shellcheck
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Shellcheck
+        run: bash .github/ci/shellcheck
+
+  secret-scan:
+    name: Secret Scan
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Secret Scan
+        env:
+          GITLEAKS_BASE: ${{ github.event.pull_request.base.sha || '' }}
+          GITLEAKS_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash .github/ci/secret-scan
