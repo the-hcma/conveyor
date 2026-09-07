@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# CI gate: lint the repo's bash (CI scripts and any scripts/ helpers).
+#
+# Mirrors the-hcma/repository-helpers conventions: severity info, zero findings.
+# Runs the same set locally and in CI.
+set -euo pipefail
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+readonly repo_dir
+cd "$repo_dir"
+
+mapfile -t targets < <(
+  {
+    find .github/ci -type f -not -name '*.md' 2>/dev/null || true
+    find scripts -type f 2>/dev/null || true
+  } | sort -u
+)
+
+if [[ "${#targets[@]}" -eq 0 ]]; then
+  echo "no shell scripts to lint"
+  exit 0
+fi
+
+if ! command -v shellcheck >/dev/null 2>&1; then
+  echo "ERROR: shellcheck not installed" >&2
+  exit 1
+fi
+
+printf 'linting (severity info):\n'
+printf '  %s\n' "${targets[@]}"
+shellcheck --severity=info --shell=bash "${targets[@]}"
+echo "clean"

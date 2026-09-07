@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Django
+*.sqlite3
+/staticfiles/
+/media/
+
+# Local env / secrets (never commit) — see .cursor/rules/no-secret-exposure.mdc
+.env
+.env.*
+!.env.example
+*.pem
+
+# Tooling
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editors
+.idea/
+.vscode/
+
+# NOTE: do not ignore .cursor/rules/ — org policy (github-repo-lint).
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
