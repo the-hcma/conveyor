@@ -22,10 +22,15 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
+.uvcache/
+audit.json
 
 # Editors
 .idea/
 .vscode/
+
+# repository-helpers scripts/dev/start-development creates worktrees here
+.worktrees/
 
 # NOTE: do not ignore .cursor/rules/ — org policy (github-repo-lint).
 .cursor/*

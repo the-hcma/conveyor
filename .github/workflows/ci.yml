@@ -2,8 +2,8 @@ name: CI
 
 # Job structure and the .github/ci/* gate scripts follow the-hcma/repository-helpers
 # conventions, enforced by github-repo-lint. Required checks on `main`: Scaffold
-# checks, Shellcheck. Guard and Secret Scan run on every PR but are advisory
-# (not required).
+# checks, Python lint & format checks, Pytest (hermetic), Shellcheck. Guard and
+# Secret Scan run on every PR but are advisory (not required).
 
 on:
   pull_request:
@@ -108,13 +108,53 @@ jobs:
           test -f .github/CODEOWNERS
           test -f .github/copilot-instructions.md
           test -f .github/stacking-tool
+          test -f pyproject.toml
+          test -f uv.lock
+          test -f .python-version
+          test -f manage.py
           test -x .github/ci/secret-scan
           test -x .github/ci/shellcheck
+          test -x .github/ci/setup-python
+          test -x .github/ci/python-static
+          test -x .github/ci/pytest-hermetic
+          test -x .github/ci/assert-uv-lock-version
           for r in git-commit-identity no-secret-exposure pr-ship-and-review \
                    pre-pr-checks read-agents-and-rules remote-timeouts-retries \
                    repo-practices-after-config-change stacking-tool; do
             test -f ".cursor/rules/$r.mdc"
           done
+
+  python-static:
+    name: Python lint & format checks
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: latest
+      - name: Python lint & format checks
+        run: bash .github/ci/python-static
+
+  test:
+    name: Pytest (hermetic)
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: latest
+      - name: Pytest (hermetic)
+        run: bash .github/ci/pytest-hermetic
 
   shellcheck:
     name: Shellcheck
