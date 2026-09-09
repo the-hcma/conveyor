@@ -104,6 +104,10 @@ fetch live state and decide for themselves after a wake.
 - Apply `ruff format` before the gate; commit format-only diffs before submit.
 - Follow **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `test:`,
   `refactor:`.
+- **Commit identity:** follow `${rh}/.cursor/rules/git-commit-identity.mdc` — no
+  `Co-authored-by:` or agent/machine trailers, and verify commit signing
+  (`commit.gpgsign` / `user.signingkey`) plus `~/.cursor/cli-config.json`
+  attribution before committing.
 - PRs must be **published (not draft)** with at minimum a **Summary** and a
   **Test plan**, and reference the relevant milestone in
   [issue #1](https://github.com/the-hcma/conveyor/issues/1).
