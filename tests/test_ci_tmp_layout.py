@@ -18,6 +18,8 @@ _WRAPPERS = {
 def _run(
     wrapper: str, tmp_path: Path, helpers: Path, **env: str
 ) -> subprocess.CompletedProcess[str]:
+    """Run a wrapper with the layout variables cleared and the helper clone set to ``helpers``."""
+
     base = {
         key: value
         for key, value in os.environ.items()
@@ -39,6 +41,8 @@ def _run(
 def test_ci_without_the_layout_helper_fails_with_a_pointer_to_the_action(
     wrapper: str, tmp_path: Path
 ) -> None:
+    """In GitHub Actions a missing helper is an error that names the action to add."""
+
     result = _run(wrapper, tmp_path, tmp_path / "none", GITHUB_ACTIONS="true")
     assert result.returncode == 1
     assert "setup-tmp-layout" in result.stderr
@@ -46,6 +50,8 @@ def test_ci_without_the_layout_helper_fails_with_a_pointer_to_the_action(
 
 @pytest.mark.parametrize("wrapper", sorted(_WRAPPERS))
 def test_the_wrapper_runs_under_the_expected_layout_tools(wrapper: str, tmp_path: Path) -> None:
+    """Each wrapper nests the layouts of the tools it runs, outermost first."""
+
     helpers = tmp_path / "helpers"
     (helpers / "scripts" / "dev").mkdir(parents=True)
     fake = helpers / "scripts" / "dev" / "with-tmp-layout"
