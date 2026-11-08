@@ -10,8 +10,10 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _WRAPPERS = {
+    "assert-uv-lock-version": ["uv"],
     "python-static": ["uv"],
     "pytest-hermetic": ["uv", "pytest"],
+    "setup-python": ["uv"],
 }
 
 
